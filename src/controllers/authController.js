@@ -1,6 +1,6 @@
 import { prisma } from "../config/db.js";
 import bcrypt from "bcryptjs";
-// import { generateToken } from "../utils/generateToken.js";
+import { generateToken } from "../utils/generateToken.js";
 
 const register = async (req, res) => {
   const { name, email, password } = req.body;
@@ -36,17 +36,17 @@ const register = async (req, res) => {
     });
 
     // Generate JWT Token
-    // const token = generateToken(user.id, res);
+    const token = generateToken(userExists.id, res);
 
     res.status(201).json({
       status: "success",
       data: {
         user: {
-          id: user.id,
-          name: name,
-          email: email,
+          id: userExists.id,
+          name: userExists.name,
+          email: userExists.email,
         },
-        // token,
+        token,
       },
     });
   } catch (error) {
@@ -57,4 +57,49 @@ const register = async (req, res) => {
   }
 };
 
-export { register };
+const login = async (req, res) => {
+  const { email, password } = req.body;
+
+  // Check if user email exist in the table
+
+  const userExists = await prisma.user.findUnique({
+    where: { email: email },
+  });
+
+  if (!userExists) {
+    return res.status(400).json({ error: "Invalid Email or password" });
+  }
+
+  //verify password
+  const isPasswordValid = await bcrypt.compare(password, userExists.password);
+
+  if (!isPasswordValid) {
+    return res.status(400).json({ error: "Invalid Email or password" });
+  }
+
+  const token = generateToken(userExists.id , res);
+
+  res.status(201).json({
+    status: "success",
+    data: {
+      user: {
+        id: userExists.id,
+        email: userExists.email,
+      },
+      token,
+    },
+  });
+};
+
+const logout = async (req , res) => {
+  res.cookie("jwt", "" ,{
+    httpOnly:true,
+    expires:new Date(0)
+  });
+  res.status(200).json({
+    status: "success",
+    message: "Logged out Successfully",
+  });
+};
+
+export { register, login , logout};
