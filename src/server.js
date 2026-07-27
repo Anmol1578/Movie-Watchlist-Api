@@ -5,6 +5,7 @@ import { connectDB, disconnectDB } from "./config/db.js";
 // Import Routes
 import movieRoutes from "./route/movieRoutes.js";
 import authRoutes from "./route/authRoutes.js";
+import watchlistRoutes from "./route/watchlistRoutes.js";
 
 // Load Environment Variables
 config();
@@ -19,6 +20,7 @@ app.use(express.urlencoded({ extended: true }));
 // API Routes
 app.use("/movies", movieRoutes);
 app.use("/auth", authRoutes);
+app.use("/watchlist", watchlistRoutes);
 
 // Wrapped Startup Flow to handle the async DB connection smoothly
 const startServer = async () => {
