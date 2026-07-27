@@ -26,7 +26,6 @@ const register = async (req, res) => {
     const salt = await bcrypt.genSalt(10);
     const hashedPassword = await bcrypt.hash(password, salt);
 
-    // Create User
     const user = await prisma.user.create({
       data: {
         name,
@@ -36,15 +35,15 @@ const register = async (req, res) => {
     });
 
     // Generate JWT Token
-    const token = generateToken(userExists.id, res);
+    const token = generateToken(user.id, res);
 
     res.status(201).json({
       status: "success",
       data: {
         user: {
-          id: userExists.id,
-          name: userExists.name,
-          email: userExists.email,
+          id: user.id,
+          name: user.name,
+          email: user.email,
         },
         token,
       },
@@ -77,7 +76,7 @@ const login = async (req, res) => {
     return res.status(400).json({ error: "Invalid Email or password" });
   }
 
-  const token = generateToken(userExists.id , res);
+  const token = generateToken(userExists.id, res);
 
   res.status(201).json({
     status: "success",
@@ -91,10 +90,10 @@ const login = async (req, res) => {
   });
 };
 
-const logout = async (req , res) => {
-  res.cookie("jwt", "" ,{
-    httpOnly:true,
-    expires:new Date(0)
+const logout = async (req, res) => {
+  res.cookie("jwt", "", {
+    httpOnly: true,
+    expires: new Date(0),
   });
   res.status(200).json({
     status: "success",
@@ -102,4 +101,4 @@ const logout = async (req , res) => {
   });
 };
 
-export { register, login , logout};
+export { register, login, logout };
