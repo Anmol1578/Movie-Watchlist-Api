@@ -14,7 +14,7 @@ import { prisma } from "../config/db.js";
   const existingInWatchlist = await prisma.watchlistItem.findUnique({
     where: {
       userId_movieId: {
-        userId: userId,
+        userId: req.user.id,
         movieId: movieId,
       },
     },
@@ -27,7 +27,7 @@ import { prisma } from "../config/db.js";
   
   const watchlistItem = await prisma.watchlistItem.create({
     data: {
-      userId,
+      userId: req.user.id,
       movieId,
       status: status || "PLANNED",
       rating,
