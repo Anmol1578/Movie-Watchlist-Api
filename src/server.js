@@ -29,7 +29,7 @@ const startServer = async () => {
 
     // 2. Start listening and assign instance to 'server'
     const server = app.listen(process.env.PORT || 5001, "0.0.0.0", () => {
-      console.log(`Server is running on port ${PORT}`);
+      console.log(`Server is running on port ${process.env.PORT || 5001}`);
     });
 
     // 3. Attach Process Event Handlers within scope of the 'server' instance
