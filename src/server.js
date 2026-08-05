@@ -11,7 +11,6 @@ import watchlistRoutes from "./route/watchlistRoutes.js";
 config();
 
 const app = express();
-const PORT = 5001;
 
 // Body parsing middlewares
 app.use(express.json());
@@ -29,7 +28,7 @@ const startServer = async () => {
     await connectDB();
 
     // 2. Start listening and assign instance to 'server'
-    const server = app.listen(PORT, () => {
+    const server = app.listen(process.env.PORT || 5001, "0.0.0.0", () => {
       console.log(`Server is running on port ${PORT}`);
     });
 
