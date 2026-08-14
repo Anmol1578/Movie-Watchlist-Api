@@ -16,6 +16,14 @@ const app = express();
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
+// Health check / Root route
+app.get("/", (req, res) => {
+  res.json({
+    success: true,
+    message: "Movie Watchlist API is running"
+  });
+});
+
 // API Routes
 app.use("/movies", movieRoutes);
 app.use("/auth", authRoutes);
