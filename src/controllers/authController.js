@@ -78,8 +78,9 @@ const login = async (req, res) => {
 
   const token = generateToken(userExists.id, res);
 
-  res.status(201).json({
+  res.status(200).json({
     status: "success",
+    message: "Log in Successfully",
     data: {
       user: {
         id: userExists.id,
