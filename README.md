@@ -1,263 +1,516 @@
 # 🎬 Movie Watchlist API
 
-A REST API for managing movies and a personal watchlist — built to demonstrate real backend engineering, not just CRUD boilerplate. Handles authentication, validated data flows, and relational data design end-to-end.
+A backend-only REST API for managing movies and personal watchlists.
 
+Built with **Node.js, Express, PostgreSQL, Prisma 7, JWT, bcrypt, and Zod**. The project focuses on authentication, authorization, relational database design, request validation, and secure API development.
 
-## 🚀 Overview
+**Live API:** https://movie-watchlist-api-m5sx.onrender.com
 
-Movie Watchlist API is a backend service that lets users register, authenticate, browse/manage a movie catalog, and maintain a personal watchlist with status tracking (Planned / Watching / Completed / Dropped) and ratings.
+**GitHub:** https://github.com/Anmol1578/Movie-Watchlist-Api
 
-It's built as a self-contained backend — no frontend — designed to be tested with an API client and consumed by any client application.
-
----
-
-## 🎯 Why This Project
-
-Most beginner backend projects stop at "CRUD + JWT." This one was built to go a step further and make deliberate engineering trade-offs:
-
-- Authentication that isn't vulnerable to basic XSS token theft
-- An ORM setup upgraded to its latest major version ahead of most public tutorials/documentation catching up
-- Input validation enforced at the boundary, not scattered through business logic
-- A schema that models real many-to-many-style relationships (users, movies, and a join entity carrying extra state)
-
-The goal was engineering judgment, not just "make the endpoint work."
+> Backend only — no frontend is included. You can use Postman, Requestly, Insomnia, or any frontend/client application to consume the API.
 
 ---
 
-## ⚙️ Tech Stack
+## 🚀 Features
 
-| Layer | Technology |
-|---|---|
-| Runtime | Node.js |
-| Framework | Express.js |
-| Database | PostgreSQL |
-| ORM | Prisma 7 (`@prisma/client`, `PrismaPg` driver adapter) |
-| Validation | Zod |
-| Auth | JWT (httpOnly cookies), bcrypt |
-| API Testing | Requestly |
+### Authentication
 
----
+* User registration
+* Secure password hashing with bcrypt
+* JWT authentication
+* JWT stored in an `httpOnly` cookie
+* Authentication middleware
+* Login and logout
 
-## 🧠 Key Engineering Decisions
+### Watchlist
 
-**JWT delivered via httpOnly cookies, not localStorage.**
-Storing the token in a cookie with `httpOnly` set means client-side JavaScript can never read it — closing off the most common XSS-based token theft vector. Trade-off: requires CORS/`credentials` configuration and CSRF-awareness, both handled explicitly rather than ignored.
+* Add movies to a personal watchlist
+* Track watch status
+* Add ratings from 1–10
+* Add personal notes
+* Update watchlist items
+* Remove movies from the watchlist
+* Prevent duplicate movies in the same user's watchlist
+* User ownership checks
 
-**Prisma 7 with the `PrismaPg` driver adapter, not the default client setup.**
-Prisma 7 is ESM-only and no longer auto-loads `.env` or reads the connection string from the schema file. The project uses the driver adapter pattern (`PrismaPg` + explicit `prisma.config.ts`) — the current recommended approach — rather than staying on an older, simpler-but-outdated client pattern.
+### Backend
 
-**Zod validation at the request boundary.**
-Every mutating endpoint validates its payload against a Zod schema before it touches business logic or the database, so invalid data fails fast with a clear error instead of surfacing as a confusing downstream bug or a raw database constraint error.
-
-**Password hashing with bcrypt, never plaintext or reversible encryption.**
-Passwords are hashed with a salt before storage; the raw password is never persisted or logged.
-
-**Centralized error handling middleware.**
-Errors are thrown and caught in one place rather than every route handler managing its own try/catch/response shape — consistent error responses across the whole API.
-
----
-
-## ⚡ Features
-
-### 🔐 Authentication
-- User registration with validated input and hashed passwords
-- Login issuing a JWT stored in an httpOnly cookie
-- Logout that clears the auth cookie
-- Middleware-protected routes that reject unauthenticated requests
-
-### 🎬 Movie Management
-- Create, read, update, and delete movies
-- Structured movie data: title, overview, release year, genres, runtime, poster URL
-- Movies linked to the user who created them
-
-### 📺 Watchlist
-- Add any movie to a personal watchlist
-- Track status per item: `PLANNED`, `WATCHING`, `COMPLETED`, `DROPPED`
-- Rate watched movies and attach personal notes
-- Update or remove watchlist entries independently of the movie record itself
-
-### 🛠️ Cross-Cutting
-- Zod-validated request bodies on every mutating route
-- Centralized error-handling middleware
-- Clear separation between auth, movie, and watchlist logic
+* PostgreSQL relational database
+* Prisma 7 ORM with `PrismaPg`
+* Zod request validation
+* UUID-based identifiers
+* Foreign-key relationships
+* Cascade deletes
+* Database migrations
+* Environment-based configuration
+* Graceful database/server shutdown
 
 ---
 
-## 🗄️ Database Schema
+## 🛠️ Tech Stack
+
+| Technology | Purpose                   |
+| ---------- | ------------------------- |
+| Node.js    | Runtime                   |
+| Express.js | REST API                  |
+| PostgreSQL | Database                  |
+| Prisma 7   | ORM                       |
+| PrismaPg   | PostgreSQL driver adapter |
+| JWT        | Authentication            |
+| bcryptjs   | Password hashing          |
+| Zod        | Request validation        |
+| dotenv     | Environment variables     |
+| Render     | Deployment                |
+
+---
+
+## 🏗️ Architecture
+
+```text
+Client / Postman / Requestly
+            │
+            ▼
+        Express API
+            │
+     ┌──────┴──────┐
+     │             │
+ Middleware      Routes
+     │             │
+     ▼             ▼
+Authentication  Controllers
+Validation          │
+                    ▼
+               Prisma 7
+                    │
+                    ▼
+                PostgreSQL
+```
+
+The application separates:
+
+* Routes
+* Controllers
+* Middleware
+* Validators
+* Database configuration
+* Utility functions
+
+---
+
+## 🗄️ Database
+
+The application uses three main models:
+
+```text
+User
+ │
+ ├── Movie
+ │
+ └── WatchlistItem
+          │
+          └── Movie
+```
+
+### User
+
+Stores registered users and authentication information.
+
+### Movie
+
+Stores movie information and the user who created the movie.
+
+### WatchlistItem
+
+Connects a user with a movie and stores:
+
+* Status
+* Rating
+* Notes
+* Created date
+* Updated date
+
+A composite unique constraint prevents the same movie from being added twice by the same user:
 
 ```prisma
-model User {
-  id       String @id @default(uuid())
-  name     String
-  email    String @unique
-  password String
+@@unique([userId, movieId])
+```
 
-  createdAt DateTime @default(now())
+Supported watchlist statuses:
 
-  movies         Movie[]         @relation("MovieCreator")
-  watchlistItems WatchlistItem[]
-}
+```text
+PLANNED
+WATCHING
+COMPLETED
+DROPPED
+```
 
-model Movie {
-  id          String   @id @default(uuid())
-  title       String
-  overview    String?
-  releaseYear Int
-  genres      String[] @default([])
-  runtime     Int?
-  posterUrl   String?
-  createdBy   String
-  createdAt   DateTime @default(now())
+---
 
-  creator        User            @relation("MovieCreator", fields: [createdBy], references: [id], onDelete: Cascade)
-  watchlistItems WatchlistItem[]
-}
+# 🔌 API Endpoints
 
-model WatchlistItem {
-  id        String          @id @default(uuid())
-  userId    String
-  movieId   String
-  status    WatchlistStatus @default(PLANNED)
-  rating    Int?
-  notes     String?
-  createdAt DateTime        @default(now())
-  updatedAt DateTime        @default(now())
+Base URL:
 
-  user  User  @relation(fields: [userId], references: [id], onDelete: Cascade)
-  movie Movie @relation(fields: [movieId], references: [id], onDelete: Cascade)
+```text
+https://movie-watchlist-api-m5sx.onrender.com
+```
 
-  @@unique([userId, movieId])
-}
+## Health Check
 
-enum WatchlistStatus {
-  PLANNED
-  WATCHING
-  COMPLETED
-  DROPPED
+| Method | Endpoint | Auth |
+| ------ | -------- | ---- |
+| GET    | `/`      | No   |
+
+---
+
+## Authentication
+
+| Method | Endpoint         | Auth |
+| ------ | ---------------- | ---- |
+| POST   | `/auth/register` | No   |
+| POST   | `/auth/login`    | No   |
+| POST   | `/auth/logout`   | No   |
+
+### Register
+
+```http
+POST /auth/register
+```
+
+```json
+{
+  "name": "John Doe",
+  "email": "john@example.com",
+  "password": "password123"
 }
 ```
 
-**Design notes:**
-- `id` fields use UUIDs rather than auto-incrementing integers — harder to enumerate/guess, safer for public-facing IDs.
-- `@@unique([userId, movieId])` on `WatchlistItem` enforces at the database level that a user can't add the same movie to their watchlist twice, instead of relying on application code to catch it.
-- `onDelete: Cascade` on both relations means deleting a user cleans up their movies and watchlist entries automatically, and deleting a movie removes it from every watchlist it's on — no orphaned rows left behind.
-- `overview`, `runtime`, and `posterUrl` are optional (`?`) since a movie can be created with just the required core fields and enriched later.
+### Login
+
+```http
+POST /auth/login
+```
+
+```json
+{
+  "email": "john@example.com",
+  "password": "password123"
+}
+```
+
+After successful login, the API creates a JWT and stores it in an `httpOnly` cookie.
 
 ---
 
-## 🔌 API Endpoints
+## Movies
 
-### Auth
-| Method | Endpoint | Description | Auth Required |
-|---|---|---|---|
-| POST | `/auth/register` | Register a new user | No |
-| POST | `/auth/login` | Log in, receive JWT (httpOnly cookie) | No |
-| POST | `/auth/logout` | Log out, clear auth cookie | Yes |
+The current movie router contains:
 
-### Movies
-| Method | Endpoint | Description | Auth Required |
-|---|---|---|---|
-| GET | `/movies` | Get all movies | No |
-| POST | `/movies` | Create a new movie | Yes |
-| PUT | `/movies/:id` | Update a movie | Yes |
-| DELETE | `/movies/:id` | Delete a movie | Yes |
+| Method | Endpoint       | Auth |
+| ------ | -------------- | ---- |
+| GET    | `/movies/film` | No   |
+| GET    | `/movies/hd`   | No   |
 
-### Watchlist
-| Method | Endpoint | Description | Auth Required |
-|---|---|---|---|
-| POST | `/watchlist` | Add a movie to the watchlist | Yes |
-| PUT | `/watchlist/:id` | Update status/rating/notes | Yes |
-| DELETE | `/watchlist/:id` | Remove a watchlist item | Yes |
+> Movie CRUD can be added as the movie module is expanded.
 
 ---
 
-## 👌 Getting Started
+## Watchlist
 
-### Prerequisites
-- Node.js 20.19+ (Prisma 7 requires it)
-- PostgreSQL 14+
-- Git
+All watchlist routes require authentication.
 
-### Installation
+| Method | Endpoint         | Description |
+| ------ | ---------------- | ----------- |
+| POST   | `/watchlist`     | Add movie   |
+| PUT    | `/watchlist/:id` | Update item |
+| DELETE | `/watchlist/:id` | Remove item |
+
+### Add to Watchlist
+
+```http
+POST /watchlist
+```
+
+```json
+{
+  "movieId": "movie-uuid",
+  "status": "PLANNED",
+  "rating": 8,
+  "notes": "Recommended movie"
+}
+```
+
+### Update Watchlist
+
+```http
+PUT /watchlist/:id
+```
+
+```json
+{
+  "status": "COMPLETED",
+  "rating": 9,
+  "notes": "Excellent movie"
+}
+```
+
+---
+
+# 🔐 Authentication
+
+Protected endpoints accept authentication through the JWT cookie created during login.
+
+The authentication middleware:
+
+```text
+Request
+   ↓
+Read JWT
+   ↓
+Verify JWT
+   ↓
+Find User
+   ↓
+req.user
+   ↓
+Protected Controller
+```
+
+Passwords are hashed using bcrypt before being stored.
+
+The API never stores the user's original password.
+
+---
+
+# ✅ Validation
+
+Watchlist requests are validated using Zod.
+
+For example:
+
+* `movieId` must be a UUID
+* `status` must be a valid watchlist status
+* `rating` must be an integer between 1 and 10
+* `notes` must be a string
+
+Invalid requests are rejected before reaching the database.
+
+---
+
+# 💻 Run Locally
+
+## 1. Clone
 
 ```bash
 git clone https://github.com/Anmol1578/Movie-Watchlist-Api.git
+
 cd Movie-Watchlist-Api
+```
+
+## 2. Install
+
+```bash
 npm install
 ```
 
-Create a `.env` file in the project root:
+## 3. Create `.env`
 
 ```env
 DATABASE_URL="postgresql://username:password@localhost:5432/database_name"
+
 JWT_SECRET="your-super-secret-jwt-key"
+
+JWT_EXPIRES_IN="7d"
+
 PORT=5001
+
+NODE_ENV="development"
 ```
 
-Run migrations:
+## 4. Run Prisma migration
 
 ```bash
 npx prisma migrate dev
 ```
 
-Start the server:
+## 5. Generate Prisma Client
+
+```bash
+npx prisma generate
+```
+
+## 6. Start development server
 
 ```bash
 npm run dev
 ```
 
-API available at `http://localhost:5001`.
+API:
 
----
-
-## 🔑 Environment Variables
-
-| Variable | Description |
-|---|---|
-| `DATABASE_URL` | PostgreSQL connection string |
-| `JWT_SECRET` | Secret used to sign JWTs |
-| `PORT` | Port the server runs on |
-
----
-
-## 🧪 Testing
-
-All endpoints were manually tested end-to-end with **Requestly**, covering:
-- Registration/login/logout flows and cookie-based auth persistence
-- Movie CRUD operations with and without auth
-- Watchlist add/update/remove flows across all status values
-- Validation failures (missing/invalid fields) and expected error responses
-
----
-
-## 📁 Project Structure
-
+```text
+http://localhost:5001
 ```
+
+---
+
+# 🧪 How to Use
+
+You can test the API using **Postman, Requestly, Insomnia, or curl**.
+
+### Recommended flow
+
+```text
+1. Register
+      ↓
+2. Login
+      ↓
+3. Authentication cookie is created
+      ↓
+4. Create/use a movie
+      ↓
+5. Add movie to watchlist
+      ↓
+6. Update status/rating/notes
+      ↓
+7. Remove from watchlist
+      ↓
+8. Logout
+```
+
+For protected endpoints, make sure your API client preserves the authentication cookie received during login.
+
+---
+
+# 🌱 Seed Movies
+
+The project includes a movie seed script.
+
+```bash
+npm run seed:movies
+```
+
+This creates sample movies such as:
+
+* The Matrix
+* Inception
+* The Dark Knight
+* Pulp Fiction
+* Interstellar
+* The Shawshank Redemption
+* Fight Club
+* Forrest Gump
+* The Godfather
+* Goodfellas
+
+> The current seed script uses a predefined user UUID, so that user must exist before running the movie seed.
+
+---
+
+# 📁 Project Structure
+
+```text
 ├── prisma/
 │   ├── schema.prisma
-│   └── migrations/
+│   ├── migrations/
+│   └── seed.js
+│
 ├── src/
-│   ├── generated/
-│   │   └── client/        # generated Prisma Client (custom output path)
-│   ├── routes/
+│   ├── config/
+│   │   └── db.js
 │   ├── controllers/
+│   │   ├── authController.js
+│   │   └── watchlistController.js
 │   ├── middleware/
-│   ├── validators/         # Zod schemas
-│   └── lib/
-│       └── prisma.js       # PrismaClient + PrismaPg adapter setup
-├── prisma.config.ts
-├── server.js
-└── package.json
+│   │   ├── authMiddleware.js
+│   │   └── validateRequest.js
+│   ├── route/
+│   │   ├── authRoutes.js
+│   │   ├── movieRoutes.js
+│   │   └── watchlistRoutes.js
+│   ├── utils/
+│   │   └── generateToken.js
+│   ├── validators/
+│   │   └── watchlistValidators.js
+│   ├── generated/
+│   │   └── client/
+│   └── server.js
+│
+├── package.json
+└── .env
 ```
-
-> Adjust routes/controllers/middleware folder names to match the actual layout in the repo — the Prisma pieces above are confirmed from `schema.prisma`.
 
 ---
 
-## 🗺️ Roadmap
+# 📦 NPM Scripts
 
-- [ ] Pagination and filtering on `GET /movies`
-- [ ] Rate limiting on auth routes
-- [ ] Automated tests (Jest + Supertest)
-- [ ] Deployment (Railway/Render)
+```bash
+npm run dev
+```
+
+Starts the development server with Nodemon.
+
+```bash
+npm run build
+```
+
+Generates the Prisma Client.
+
+```bash
+npm start
+```
+
+Starts the production server.
+
+```bash
+npm run seed:movies
+```
+
+Seeds sample movies.
+
+---
+
+# ☁️ Deployment
+
+The API is deployed on **Render**.
+
+Production URL:
+
+```text
+https://movie-watchlist-api-m5sx.onrender.com
+```
+
+Required production environment variables:
+
+```env
+DATABASE_URL
+JWT_SECRET
+JWT_EXPIRES_IN
+NODE_ENV
+PORT
+```
+
+The server listens on `0.0.0.0` and uses the `PORT` provided by the deployment platform.
+
+---
+
+# 🔮 Future Improvements
+
+* [ ] Complete movie CRUD
+* [ ] Get user's watchlist
+* [ ] Movie search and filtering
+* [ ] Pagination
+* [ ] Authentication validation with Zod
+* [ ] Centralized error handling
+* [ ] Rate limiting
+* [ ] Automated tests with Jest/Supertest
+* [ ] Swagger/OpenAPI documentation
+* [ ] Production logging and monitoring
+
+---
+
+## 👨‍💻 Author
+
+**Anmol**
+
+Backend project built to demonstrate practical Node.js backend development with Express, PostgreSQL, Prisma, authentication, validation, and relational database design.
 
